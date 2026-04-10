@@ -1,0 +1,45 @@
+# syntax=docker/dockerfile:1
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY apps/api/package.json          ./apps/api/
+RUN npm ci --ignore-scripts
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+FROM deps AS builder
+COPY packages/ packages/
+COPY apps/api/  apps/api/
+COPY tsconfig.base.json ./
+
+# Build shared TypeScript → dist/
+RUN npm run build -w packages/shared
+
+# Patch shared package.json so Node.js resolves compiled JS at runtime
+RUN node -e "\
+  const fs = require('fs'); \
+  const p = JSON.parse(fs.readFileSync('packages/shared/package.json')); \
+  p.main = './dist/index.js'; \
+  p.types = './dist/index.d.ts'; \
+  fs.writeFileSync('packages/shared/package.json', JSON.stringify(p, null, 2)); \
+"
+
+# Build API TypeScript → dist/ + generate Prisma client
+RUN npm run build -w apps/api
+RUN cd apps/api && npx prisma generate
+
+# ── Runtime ────────────────────────────────────────────────────────────────────
+FROM node:20-alpine
+WORKDIR /app
+
+COPY --from=builder /app/node_modules             ./node_modules
+COPY --from=builder /app/packages/shared          ./packages/shared
+COPY --from=builder /app/apps/api/dist            ./apps/api/dist
+COPY --from=builder /app/apps/api/prisma          ./apps/api/prisma
+COPY --from=builder /app/apps/api/node_modules    ./apps/api/node_modules
+
+EXPOSE 3001
+
+CMD ["sh", "-c", \
+  "cd /app/apps/api && npx prisma migrate deploy --schema=./prisma/schema.prisma && \
+   cd /app && node apps/api/dist/server.js"]

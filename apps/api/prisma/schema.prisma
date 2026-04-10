@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  USER
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  role          Role           @default(USER)
+  name          String?
+  pageAccess    String[]       @default([])
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime       @updatedAt @db.Timestamptz(6)
+  refreshTokens RefreshToken[]
+
+  @@index([email])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime  @db.Timestamptz(6)
+  revokedAt DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model LogEntry {
+  id          String   @id @default(cuid())
+  timestamp   DateTime @default(now()) @db.Timestamptz(6)
+  level       String
+  service     String
+  message     String
+  metadata    Json?
+  traceId     String?
+  spanId      String?
+  host        String?
+  environment String   @default("production")
+  importJobId String?
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([timestamp])
+  @@index([level])
+  @@index([service])
+  @@index([level, timestamp])
+  @@index([service, timestamp])
+  @@index([importJobId])
+}
+
+model ImportJob {
+  id           String    @id @default(cuid())
+  userId       String
+  fileName     String
+  fileSize     Int
+  format       String
+  status       String    @default("pending")
+  totalRows    Int       @default(0)
+  importedRows Int       @default(0)
+  skippedRows  Int       @default(0)
+  errorRows    Int       @default(0)
+  parseErrors  Json?
+  columnMapping Json?
+  startedAt    DateTime? @db.Timestamptz(6)
+  completedAt  DateTime? @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model AISummary {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  prompt    String
+  response  String
+  logCount  Int
+  fromTime  DateTime @db.Timestamptz(6)
+  toTime    DateTime @db.Timestamptz(6)
+  services  String[]
+  model     String
+}

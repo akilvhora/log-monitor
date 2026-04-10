@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(psql --version)",
+      "Bash(npm list:*)",
+      "Bash(where npx:*)",
+      "Bash(npx --version)",
+      "Bash(where pnpm:*)",
+      "Bash(pnpm --version)",
+      "Bash(where bun:*)",
+      "Bash(pip show:*)",
+      "Bash(dir D:\\\\work\\\\Log Monitor:*)",
+      "Bash(cmd:*)",
+      "Bash(npm install:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npx tsc:*)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(curl -s http://localhost:3001/api/logs?limit=2)",
+      "Bash(kill %1)",
+      "Bash(npx concurrently:*)",
+      "Bash(npm run:*)",
+      "Bash(curl -s http://localhost:3001/health)",
+      "Bash(curl -s http://localhost:5175 -o /dev/null -w \"%{http_code}\")",
+      "Bash(netstat -ano)",
+      "Bash(findstr \":3001 \")",
+      "Bash(findstr LISTENING)",
+      "Bash(findstr \":3001\")",
+      "Bash(findstr \":5175\")",
+      "Bash(curl -s http://localhost:3001/api/stats/summary)",
+      "Bash(taskkill:*)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(kill -9 33764)",
+      "Bash(echo \"bash kill exit: $?\")",
+      "Bash(powershell:*)",
+      "Bash(node -e \"import\\('./node_modules/@fastify/cookie/plugin.js'\\).then\\(m => console.log\\('ok'\\)\\).catch\\(e => console.log\\(e.message\\)\\)\")",
+      "Bash(cat apps/api/.env)",
+      "Bash(cat .env)",
+      "Bash(gh auth:*)"
+    ]
+  }
+}

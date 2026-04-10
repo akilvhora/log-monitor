@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY apps/web/package.json         ./apps/web/
+RUN npm ci --ignore-scripts
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+FROM deps AS builder
+COPY packages/ packages/
+COPY apps/web/  apps/web/
+COPY tsconfig.base.json ./
+
+RUN npm run build -w packages/shared
+
+# Build the React SPA (Vite).
+# VITE_API_URL is empty — nginx proxies /api/* to the api service.
+# VITE_WS_URL is empty — browser connects to ws://<same-host>/live via nginx.
+ARG VITE_API_URL=""
+ARG VITE_WS_URL=""
+RUN npm run build -w apps/web
+
+# ── Serve ──────────────────────────────────────────────────────────────────────
+FROM nginx:alpine
+COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
