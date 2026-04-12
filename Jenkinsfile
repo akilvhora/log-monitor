@@ -25,27 +25,33 @@ pipeline {
             }
         }
 
-        stage('Setup Buildx') {
-            steps {
-                bat 'docker buildx create --name linux-builder --driver docker-container --platform linux/amd64 --use --bootstrap 2>nul || docker buildx use linux-builder'
-            }
-        }
-
         stage('Build Docker Images') {
             parallel {
                 stage('API Image') {
                     steps {
-                        withCredentials([usernamePassword(credentialsId: "${REGISTRY_CRED}", usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
-                            bat "docker buildx build --platform linux/amd64 --provenance=false -f docker/Dockerfile.api -t ${IMAGE_API}:${IMAGE_TAG} -t ${IMAGE_API}:latest --output type=registry,registry.insecure=true --push ."
-                        }
+                        bat "docker build --isolation hyperv --platform linux/amd64 -f docker/Dockerfile.api -t %IMAGE_API%:%IMAGE_TAG% ."
                     }
                 }
                 stage('Web Image') {
                     steps {
-                        withCredentials([usernamePassword(credentialsId: "${REGISTRY_CRED}", usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
-                            bat "docker buildx build --platform linux/amd64 --provenance=false -f docker/Dockerfile.web -t ${IMAGE_WEB}:${IMAGE_TAG} -t ${IMAGE_WEB}:latest --output type=registry,registry.insecure=true --push ."
-                        }
+                        bat "docker build --isolation hyperv --platform linux/amd64 -f docker/Dockerfile.web -t %IMAGE_WEB%:%IMAGE_TAG% ."
                     }
+                }
+            }
+        }
+
+        stage('Push to Registry') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: "${REGISTRY_CRED}", usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
+                    bat """
+                        docker login %REGISTRY% -u %REG_USER% -p %REG_PASS%
+                        docker push %IMAGE_API%:%IMAGE_TAG%
+                        docker push %IMAGE_API%:latest
+                        docker tag  %IMAGE_API%:%IMAGE_TAG% %IMAGE_API%:latest
+                        docker push %IMAGE_WEB%:%IMAGE_TAG%
+                        docker tag  %IMAGE_WEB%:%IMAGE_TAG% %IMAGE_WEB%:latest
+                        docker push %IMAGE_WEB%:latest
+                    """
                 }
             }
         }
@@ -71,7 +77,13 @@ pipeline {
             echo "Build ${BUILD_NUMBER} failed."
         }
         always {
-            bat 'docker buildx rm linux-builder 2>nul || exit 0'
+            bat """
+                docker rmi %IMAGE_API%:%IMAGE_TAG% 2>nul
+                docker rmi %IMAGE_WEB%:%IMAGE_TAG% 2>nul
+                docker rmi %IMAGE_API%:latest 2>nul
+                docker rmi %IMAGE_WEB%:latest 2>nul
+                exit 0
+            """
         }
     }
 }
