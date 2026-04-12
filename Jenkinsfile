@@ -7,6 +7,7 @@ pipeline {
         IMAGE_WEB     = "${REGISTRY}/log-monitor-web"
         IMAGE_TAG     = "${env.BUILD_NUMBER}"
         REGISTRY_CRED = 'nexus-docker-creds'   // Jenkins credential ID
+        DOCKER_BUILDKIT = '1'
     }
 
     options {
@@ -24,34 +25,26 @@ pipeline {
             }
         }
 
+        stage('Setup Buildx') {
+            steps {
+                bat 'docker buildx create --name linux-builder --driver docker-container --platform linux/amd64 --use --bootstrap 2>nul || docker buildx use linux-builder'
+            }
+        }
+
         stage('Build Docker Images') {
             parallel {
                 stage('API Image') {
                     steps {
-                        script {
-                            docker.build("${IMAGE_API}:${IMAGE_TAG}", '-f docker/Dockerfile.api .')
+                        withCredentials([usernamePassword(credentialsId: "${REGISTRY_CRED}", usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
+                            bat "docker buildx build --platform linux/amd64 --provenance=false -f docker/Dockerfile.api -t ${IMAGE_API}:${IMAGE_TAG} -t ${IMAGE_API}:latest --output type=registry,registry.insecure=true --push ."
                         }
                     }
                 }
                 stage('Web Image') {
                     steps {
-                        script {
-                            docker.build("${IMAGE_WEB}:${IMAGE_TAG}", '-f docker/Dockerfile.web .')
+                        withCredentials([usernamePassword(credentialsId: "${REGISTRY_CRED}", usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
+                            bat "docker buildx build --platform linux/amd64 --provenance=false -f docker/Dockerfile.web -t ${IMAGE_WEB}:${IMAGE_TAG} -t ${IMAGE_WEB}:latest --output type=registry,registry.insecure=true --push ."
                         }
-                    }
-                }
-            }
-        }
-
-        stage('Push to Registry') {
-            steps {
-                script {
-                    docker.withRegistry("http://${REGISTRY}", REGISTRY_CRED) {
-                        docker.image("${IMAGE_API}:${IMAGE_TAG}").push()
-                        docker.image("${IMAGE_API}:${IMAGE_TAG}").push('latest')
-
-                        docker.image("${IMAGE_WEB}:${IMAGE_TAG}").push()
-                        docker.image("${IMAGE_WEB}:${IMAGE_TAG}").push('latest')
                     }
                 }
             }
@@ -78,20 +71,7 @@ pipeline {
             echo "Build ${BUILD_NUMBER} failed."
         }
         always {
-            // Clean up local images to reclaim disk space
-            script {
-                if (isUnix()) {
-                    sh """
-                        docker rmi ${IMAGE_API}:${IMAGE_TAG} || true
-                        docker rmi ${IMAGE_WEB}:${IMAGE_TAG} || true
-                    """
-                } else {
-                    bat """
-                        docker rmi ${IMAGE_API}:${IMAGE_TAG} || exit 0
-                        docker rmi ${IMAGE_WEB}:${IMAGE_TAG} || exit 0
-                    """
-                }
-            }
+            bat 'docker buildx rm linux-builder 2>nul || exit 0'
         }
     }
 }
