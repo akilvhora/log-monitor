@@ -79,10 +79,19 @@ pipeline {
         }
         always {
             // Clean up local images to reclaim disk space
-            sh """
-                docker rmi ${IMAGE_API}:${IMAGE_TAG} || true
-                docker rmi ${IMAGE_WEB}:${IMAGE_TAG} || true
-            """
+            script {
+                if (isUnix()) {
+                    sh """
+                        docker rmi ${IMAGE_API}:${IMAGE_TAG} || true
+                        docker rmi ${IMAGE_WEB}:${IMAGE_TAG} || true
+                    """
+                } else {
+                    bat """
+                        docker rmi ${IMAGE_API}:${IMAGE_TAG} || exit 0
+                        docker rmi ${IMAGE_WEB}:${IMAGE_TAG} || exit 0
+                    """
+                }
+            }
         }
     }
 }
