@@ -37,7 +37,14 @@
       "Bash(node -e \"import\\('./node_modules/@fastify/cookie/plugin.js'\\).then\\(m => console.log\\('ok'\\)\\).catch\\(e => console.log\\(e.message\\)\\)\")",
       "Bash(cat apps/api/.env)",
       "Bash(cat .env)",
-      "Bash(gh auth:*)"
+      "Bash(gh auth:*)",
+      "Bash(gh repo:*)",
+      "Bash(curl:*)",
+      "Bash(python3 -c ':*)",
+      "WebFetch(domain:server)",
+      "Bash(ping:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(git:*)"
     ]
   }
 }
