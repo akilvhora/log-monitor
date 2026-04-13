@@ -8,7 +8,8 @@ COPY .npmrc ./
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY apps/web/package.json         ./apps/web/
-RUN npm ci --ignore-scripts --cache /tmp/npm-cache
+RUN npm ci --ignore-scripts --cache /tmp/npm-cache && \
+    node node_modules/esbuild/install.js
 
 # ── Build ──────────────────────────────────────────────────────────────────────
 FROM deps AS builder
