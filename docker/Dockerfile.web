@@ -1,5 +1,5 @@
 # ---- Build Stage ----
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 WORKDIR /app
@@ -13,6 +13,7 @@ COPY packages/shared/package.json packages/shared/
 RUN npm ci --ignore-scripts
 
 # Copy source code
+COPY tsconfig.base.json ./
 COPY packages/shared/ packages/shared/
 COPY apps/web/ apps/web/
 
