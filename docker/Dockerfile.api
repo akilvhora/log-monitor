@@ -27,21 +27,14 @@ RUN npm run build -w apps/api
 # ---- Production Stage ----
 FROM node:20-alpine
 
+ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-COPY apps/api/package.json apps/api/
-COPY packages/shared/package.json packages/shared/
+# Copy everything from builder (node_modules, built artifacts, prisma client)
+COPY --from=builder /app/ ./
 
-RUN npm cache clean --force && npm ci --omit=dev --ignore-scripts
-
-# Copy built artifacts
-COPY --from=builder /app/packages/shared/dist/ packages/shared/dist/
-COPY --from=builder /app/apps/api/dist/ apps/api/dist/
-COPY --from=builder /app/apps/api/prisma/ apps/api/prisma/
-
-# Regenerate Prisma client in production stage (hoisted .prisma path varies)
-RUN npx -w apps/api prisma generate
+# Prune devDependencies offline (no network call)
+RUN npm prune --omit=dev
 
 EXPOSE 3001
 
