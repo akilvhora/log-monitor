@@ -1,7 +1,6 @@
 # ---- Build Stage ----
 FROM node:18-alpine AS builder
 
-ENV NODE_OPTIONS=--openssl-legacy-provider
 WORKDIR /app
 
 # Copy workspace root files
@@ -10,7 +9,7 @@ COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
 
 # Install dependencies
-RUN npm config set strict-ssl false && npm ci --ignore-scripts
+RUN npm ci --ignore-scripts
 
 # Copy source code
 COPY packages/shared/ packages/shared/

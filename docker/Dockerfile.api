@@ -1,7 +1,6 @@
 # ---- Build Stage ----
 FROM node:18-alpine AS builder
 
-ENV NODE_OPTIONS=--openssl-legacy-provider
 WORKDIR /app
 
 # Copy workspace root files
@@ -10,7 +9,7 @@ COPY apps/api/package.json apps/api/
 COPY packages/shared/package.json packages/shared/
 
 # Install all dependencies (including devDeps for build)
-RUN npm config set strict-ssl false && npm ci --ignore-scripts
+RUN npm ci --ignore-scripts
 
 # Copy source code
 COPY packages/shared/ packages/shared/
@@ -26,14 +25,13 @@ RUN npm run build -w apps/api
 # ---- Production Stage ----
 FROM node:18-alpine
 
-ENV NODE_OPTIONS=--openssl-legacy-provider
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
 COPY apps/api/package.json apps/api/
 COPY packages/shared/package.json packages/shared/
 
-RUN npm config set strict-ssl false && npm ci --omit=dev --ignore-scripts
+RUN npm ci --omit=dev --ignore-scripts
 
 # Copy built artifacts
 COPY --from=builder /app/packages/shared/dist/ packages/shared/dist/
