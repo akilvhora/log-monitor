@@ -10,7 +10,7 @@ COPY apps/api/package.json apps/api/
 COPY packages/shared/package.json packages/shared/
 
 # Install all dependencies (including devDeps for build)
-RUN npm ci --ignore-scripts
+RUN npm cache clean --force && npm ci --ignore-scripts
 
 # Copy source code
 COPY tsconfig.base.json ./
@@ -33,14 +33,15 @@ COPY package.json package-lock.json* ./
 COPY apps/api/package.json apps/api/
 COPY packages/shared/package.json packages/shared/
 
-RUN npm ci --omit=dev --ignore-scripts
+RUN npm cache clean --force && npm ci --omit=dev --ignore-scripts
 
 # Copy built artifacts
 COPY --from=builder /app/packages/shared/dist/ packages/shared/dist/
 COPY --from=builder /app/apps/api/dist/ apps/api/dist/
 COPY --from=builder /app/apps/api/prisma/ apps/api/prisma/
-COPY --from=builder /app/apps/api/node_modules/.prisma/ apps/api/node_modules/.prisma/
-COPY --from=builder /app/node_modules/.prisma/ node_modules/.prisma/
+
+# Regenerate Prisma client in production stage (hoisted .prisma path varies)
+RUN npx -w apps/api prisma generate
 
 EXPOSE 3001
 
