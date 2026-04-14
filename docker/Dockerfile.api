@@ -3,7 +3,7 @@ FROM node:20-alpine AS builder
 
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 ENV PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
-RUN apk add --no-cache openssl ca-certificates
+RUN for i in 1 2 3; do apk update && apk add --no-cache openssl ca-certificates && break || (echo "apk attempt $i failed, retrying..." && sleep 5 && apk cache clean 2>/dev/null || true); done
 WORKDIR /app
 
 # Copy workspace root files
@@ -30,7 +30,7 @@ RUN npm run build -w apps/api
 FROM node:20-alpine
 
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
-RUN apk add --no-cache openssl ca-certificates
+RUN for i in 1 2 3; do apk update && apk add --no-cache openssl ca-certificates && break || (echo "apk attempt $i failed, retrying..." && sleep 5 && apk cache clean 2>/dev/null || true); done
 WORKDIR /app
 
 # Copy everything from builder (node_modules, built artifacts, prisma client)
