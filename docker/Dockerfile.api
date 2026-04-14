@@ -9,7 +9,7 @@ COPY apps/api/package.json apps/api/
 COPY packages/shared/package.json packages/shared/
 
 # Install all dependencies (including devDeps for build)
-RUN npm ci --ignore-scripts
+RUN npm config set strict-ssl false && npm ci --ignore-scripts
 
 # Copy source code
 COPY packages/shared/ packages/shared/
@@ -31,7 +31,7 @@ COPY package.json package-lock.json* ./
 COPY apps/api/package.json apps/api/
 COPY packages/shared/package.json packages/shared/
 
-RUN npm ci --omit=dev --ignore-scripts
+RUN npm config set strict-ssl false && npm ci --omit=dev --ignore-scripts
 
 # Copy built artifacts
 COPY --from=builder /app/packages/shared/dist/ packages/shared/dist/

@@ -9,7 +9,7 @@ COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
 
 # Install dependencies
-RUN npm ci --ignore-scripts
+RUN npm config set strict-ssl false && npm ci --ignore-scripts
 
 # Copy source code
 COPY packages/shared/ packages/shared/
