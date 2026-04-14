@@ -1,12 +1,8 @@
 # ---- Build Stage ----
 FROM node:18-alpine AS builder
 
+ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 WORKDIR /app
-
-# Use Nexus npm proxy to avoid SSL issues
-RUN npm config set registry http://192.168.1.111:8081/repository/npm-proxy/ \
-    && npm config set //192.168.1.111:8081/repository/npm-proxy/:_auth=$(echo -n 'admin:admin@123' | base64) \
-    && npm config set strict-ssl false
 
 # Copy workspace root files
 COPY package.json package-lock.json* ./
