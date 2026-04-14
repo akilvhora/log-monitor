@@ -36,7 +36,8 @@ services:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 60s
 
   web:
     image: ${IMAGE_WEB:-192.168.1.111:8081/log-monitor-web:latest}
