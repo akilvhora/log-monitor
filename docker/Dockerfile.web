@@ -1,10 +1,7 @@
 # syntax=docker/dockerfile:1
-FROM node:20-alpine AS deps
+# ── Deps (Debian slim — glibc avoids Alpine/musl AES-GCM crash on Hyper-V) ────
+FROM node:20-slim AS deps
 WORKDIR /app
-# Force software-only crypto in OpenSSL 3 — hardware AES-GCM (AES-NI) crashes
-# under Hyper-V / WSL2 virtualization (ERR_SSL_CIPHER_OPERATION_FAILED).
-# 0x0 clears all CPUID capability bits so OpenSSL never attempts hw acceleration.
-ENV OPENSSL_ia32cap=0x0
 COPY .npmrc ./
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/
