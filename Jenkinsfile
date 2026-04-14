@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        NEXUS_URL        = '192.168.1.111:8082'
+        NEXUS_URL        = '192.168.1.111:8081'
         NEXUS_REPO       = 'docker-hosted'
         IMAGE_API        = "${NEXUS_URL}/log-monitor-api"
         IMAGE_WEB        = "${NEXUS_URL}/log-monitor-web"
