@@ -3,9 +3,9 @@ pipeline {
 
     environment {
         NEXUS_URL        = '192.168.1.111:8081'
-        NEXUS_REPO       = 'docker-hosted'
-        IMAGE_API        = "${NEXUS_URL}/log-monitor-api"
-        IMAGE_WEB        = "${NEXUS_URL}/log-monitor-web"
+        NEXUS_REPO       = 'docker'
+        IMAGE_API        = "${NEXUS_URL}/${NEXUS_REPO}/log-monitor-api"
+        IMAGE_WEB        = "${NEXUS_URL}/${NEXUS_REPO}/log-monitor-web"
         IMAGE_TAG        = "${BUILD_NUMBER}"
         DEPLOY_DIR       = 'C:\\deploy\\log-monitor'
     }
