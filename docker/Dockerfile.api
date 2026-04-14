@@ -3,6 +3,10 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
+# Use Nexus npm proxy to avoid SSL issues
+RUN npm config set registry http://192.168.1.111:8081/repository/npm-proxy/ \
+    && npm config set strict-ssl false
+
 # Copy workspace root files
 COPY package.json package-lock.json* ./
 COPY apps/api/package.json apps/api/
@@ -26,6 +30,10 @@ RUN npm run build -w apps/api
 FROM node:18-alpine
 
 WORKDIR /app
+
+# Use Nexus npm proxy to avoid SSL issues
+RUN npm config set registry http://192.168.1.111:8081/repository/npm-proxy/ \
+    && npm config set strict-ssl false
 
 COPY package.json package-lock.json* ./
 COPY apps/api/package.json apps/api/
