@@ -12,7 +12,14 @@ COPY apps/api/package.json apps/api/
 COPY packages/shared/package.json packages/shared/
 
 # Install all dependencies (including devDeps for build)
-RUN npm cache clean --force && npm ci --ignore-scripts
+# Use HTTP registry + disable strict-ssl to work around corporate MITM proxy TLS cipher failures
+RUN npm config set registry http://registry.npmjs.org/ \
+ && npm config set strict-ssl false \
+ && npm config set fetch-retries 5 \
+ && npm config set fetch-retry-mintimeout 20000 \
+ && npm config set fetch-retry-maxtimeout 120000 \
+ && npm cache clean --force \
+ && npm ci --ignore-scripts
 
 # Copy source code
 COPY tsconfig.base.json ./
