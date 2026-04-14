@@ -2,6 +2,8 @@
 FROM node:20-alpine AS builder
 
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
+ENV PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
+RUN apk add --no-cache openssl ca-certificates
 WORKDIR /app
 
 # Copy workspace root files
@@ -28,6 +30,7 @@ RUN npm run build -w apps/api
 FROM node:20-alpine
 
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
+RUN apk add --no-cache openssl ca-certificates
 WORKDIR /app
 
 # Copy everything from builder (node_modules, built artifacts, prisma client)
@@ -40,5 +43,5 @@ EXPOSE 3001
 
 WORKDIR /app/apps/api
 
-# Run migrations then start
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
+# Run migrations then start (offline — engines are already bundled from builder stage)
+CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && node dist/server.js"]
