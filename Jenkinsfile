@@ -2,128 +2,116 @@ pipeline {
     agent any
 
     environment {
-        REGISTRY        = 'server:8081'
-        IMAGE_API       = "${REGISTRY}/log-monitor-api"
-        IMAGE_WEB       = "${REGISTRY}/log-monitor-web"
-        IMAGE_TAG       = "${env.BUILD_NUMBER}"
-        REGISTRY_CRED   = 'nexus-docker-creds'
-        DOCKER_BUILDKIT = '1'
-        REPO_URL        = 'https://github.com/akilvhora/log-monitor.git'
-        REPO_BRANCH     = 'master'
-    }
-
-    options {
-        disableConcurrentBuilds()
-        timeout(time: 30, unit: 'MINUTES')
-        buildDiscarder(logRotator(numToKeepStr: '10'))
+        NEXUS_URL        = '192.168.1.111:8082'
+        NEXUS_REPO       = 'docker-hosted'
+        IMAGE_API        = "${NEXUS_URL}/log-monitor-api"
+        IMAGE_WEB        = "${NEXUS_URL}/log-monitor-web"
+        IMAGE_TAG        = "${BUILD_NUMBER}"
+        DEPLOY_DIR       = 'C:\\deploy\\log-monitor'
     }
 
     stages {
-
         stage('Checkout') {
             steps {
-                // Apply git settings inline so they take effect regardless of the
-                // server-level .gitconfig.  Then clone with retry to survive
-                // transient network drops.
-                retry(3) {
-                    bat """
-                        git config --global http.sslBackend  openssl
-                        git config --global http.version     HTTP/1.1
-                        git config --global http.postBuffer  524288000
-                        git config --global core.compression 0
-                        git config --global http.sslVerify   true
-                        git config --global --add safe.directory "%CD%"
-
-                        IF EXIST .git (
-                            git fetch --depth=1 origin %REPO_BRANCH%
-                            git reset --hard origin/%REPO_BRANCH%
-                            git clean -fd
-                        ) ELSE (
-                            git clone --depth=1 --no-tags --single-branch --branch %REPO_BRANCH% %REPO_URL% .
-                        )
-                    """
-                }
-                echo "Checked out branch: ${env.REPO_BRANCH} -- build #${env.BUILD_NUMBER}"
+                checkout scm
             }
         }
 
-        stage('Pull Base Images') {
-            // Pull base images separately with retry before the build.
-            // Avoids mid-layer TLS bad-record-MAC failures by isolating the
-            // network-heavy step and retrying on transient drops.
+        stage('Docker Login to Nexus') {
             steps {
-                retry(3) {
-                    bat "docker pull node:20-alpine"
+                withCredentials([usernamePassword(
+                    credentialsId: 'nexus-credentials',
+                    usernameVariable: 'NEXUS_USER',
+                    passwordVariable: 'NEXUS_PASS'
+                )]) {
+                    bat "docker login -u %NEXUS_USER% -p %NEXUS_PASS% ${NEXUS_URL}"
                 }
             }
         }
 
         stage('Build Docker Images') {
             parallel {
-                stage('API Image') {
+                stage('Build API') {
                     steps {
-                        retry(2) {
-                            bat "docker build --no-cache -f docker/Dockerfile.api -t %IMAGE_API%:%IMAGE_TAG% ."
-                        }
+                        bat "docker build -t ${IMAGE_API}:${IMAGE_TAG} -t ${IMAGE_API}:latest -f docker/Dockerfile.api ."
                     }
                 }
-                stage('Web Image') {
+                stage('Build Web') {
                     steps {
-                        retry(2) {
-                            bat "docker build --no-cache -f docker/Dockerfile.web -t %IMAGE_WEB%:%IMAGE_TAG% ."
-                        }
+                        bat "docker build -t ${IMAGE_WEB}:${IMAGE_TAG} -t ${IMAGE_WEB}:latest -f docker/Dockerfile.web ."
                     }
                 }
             }
         }
 
-        stage('Push to Registry') {
+        stage('Push to Nexus') {
             steps {
-                withCredentials([usernamePassword(credentialsId: "${REGISTRY_CRED}", usernameVariable: 'REG_USER', passwordVariable: 'REG_PASS')]) {
-                    bat """
-                        docker login %REGISTRY% -u %REG_USER% -p %REG_PASS%
-                        docker push %IMAGE_API%:%IMAGE_TAG%
-                        docker tag  %IMAGE_API%:%IMAGE_TAG% %IMAGE_API%:latest
-                        docker push %IMAGE_API%:latest
-                        docker push %IMAGE_WEB%:%IMAGE_TAG%
-                        docker tag  %IMAGE_WEB%:%IMAGE_TAG% %IMAGE_WEB%:latest
-                        docker push %IMAGE_WEB%:latest
-                    """
-                }
+                bat """
+                    docker push ${IMAGE_API}:${IMAGE_TAG}
+                    docker push ${IMAGE_API}:latest
+                    docker push ${IMAGE_WEB}:${IMAGE_TAG}
+                    docker push ${IMAGE_WEB}:latest
+                """
             }
         }
 
         stage('Deploy') {
-            when {
-                // branch 'master' / branch 'main' only work in Multibranch
-                // Pipelines (they read env.BRANCH_NAME).  This is a regular
-                // Pipeline that does its own checkout, so use REPO_BRANCH.
-                anyOf {
-                    expression { env.REPO_BRANCH == 'master' }
-                    expression { env.REPO_BRANCH == 'main'   }
+            steps {
+                bat """
+                    if not exist "${DEPLOY_DIR}" mkdir "${DEPLOY_DIR}"
+                    copy /Y docker\\docker-compose.deploy.yml "${DEPLOY_DIR}\\docker-compose.yml"
+                    copy /Y docker\\.env.deploy "${DEPLOY_DIR}\\.env" 2>nul || echo "No .env.deploy found, using existing .env"
+                """
+
+                dir("${DEPLOY_DIR}") {
+                    withEnv([
+                        "IMAGE_API=${IMAGE_API}:${IMAGE_TAG}",
+                        "IMAGE_WEB=${IMAGE_WEB}:${IMAGE_TAG}"
+                    ]) {
+                        bat """
+                            docker-compose down --remove-orphans 2>nul || echo "No existing containers"
+                            docker-compose up -d
+                        """
+                    }
                 }
             }
+        }
+
+        stage('Health Check') {
             steps {
-                echo "Deploying build #${IMAGE_TAG} -- update your docker-compose or k8s manifests here."
+                script {
+                    def retries = 10
+                    def healthy = false
+                    for (int i = 0; i < retries; i++) {
+                        try {
+                            bat 'curl -sf http://localhost/health >nul 2>&1'
+                            healthy = true
+                            break
+                        } catch (e) {
+                            echo "Health check attempt ${i + 1}/${retries} failed, waiting 10s..."
+                            sleep(time: 10, unit: 'SECONDS')
+                        }
+                    }
+                    if (!healthy) {
+                        echo "WARNING: Health check did not pass after ${retries} attempts"
+                        echo "The application may still be starting up. Check docker-compose logs."
+                    }
+                }
             }
         }
     }
 
     post {
         success {
-            echo "Build ${BUILD_NUMBER} succeeded. Images pushed to ${REGISTRY}."
+            echo "Deployed log-monitor build #${BUILD_NUMBER} successfully"
+            echo "Application: http://192.168.1.111"
+            echo "API: http://192.168.1.111/api/logs"
         }
         failure {
-            echo "Build ${BUILD_NUMBER} failed."
+            echo "Build #${BUILD_NUMBER} failed"
         }
         always {
-            bat """
-                docker rmi %IMAGE_API%:%IMAGE_TAG% 2>nul
-                docker rmi %IMAGE_WEB%:%IMAGE_TAG% 2>nul
-                docker rmi %IMAGE_API%:latest 2>nul
-                docker rmi %IMAGE_WEB%:latest 2>nul
-                exit 0
-            """
+            bat 'docker image prune -f 2>nul || echo "Prune skipped"'
         }
     }
 }

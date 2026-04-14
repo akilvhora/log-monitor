@@ -1,47 +1,48 @@
-# syntax=docker/dockerfile:1
-# ── Deps (Debian slim — glibc avoids Alpine/musl AES-GCM crash on Hyper-V) ────
-FROM node:20-slim AS deps
+# ---- Build Stage ----
+FROM node:20-alpine AS builder
+
 WORKDIR /app
-COPY .npmrc ./
-COPY package.json package-lock.json ./
-COPY packages/shared/package.json ./packages/shared/
-COPY apps/api/package.json          ./apps/api/
-RUN npm ci --ignore-scripts --cache /tmp/npm-cache
 
-# ── Build ──────────────────────────────────────────────────────────────────────
-FROM deps AS builder
-COPY packages/ packages/
-COPY apps/api/  apps/api/
-COPY tsconfig.base.json ./
+# Copy workspace root files
+COPY package.json package-lock.json* ./
+COPY apps/api/package.json apps/api/
+COPY packages/shared/package.json packages/shared/
 
-# Build shared TypeScript → dist/
+# Install all dependencies (including devDeps for build)
+RUN npm ci --ignore-scripts
+
+# Copy source code
+COPY packages/shared/ packages/shared/
+COPY apps/api/ apps/api/
+
+# Generate Prisma client
+RUN npx -w apps/api prisma generate
+
+# Build shared package then API
 RUN npm run build -w packages/shared
-
-# Patch shared package.json so Node.js resolves compiled JS at runtime
-RUN node -e "\
-  const fs = require('fs'); \
-  const p = JSON.parse(fs.readFileSync('packages/shared/package.json')); \
-  p.main = './dist/index.js'; \
-  p.types = './dist/index.d.ts'; \
-  fs.writeFileSync('packages/shared/package.json', JSON.stringify(p, null, 2)); \
-"
-
-# Build API TypeScript → dist/ + generate Prisma client
 RUN npm run build -w apps/api
-RUN cd apps/api && npx prisma generate
 
-# ── Runtime ────────────────────────────────────────────────────────────────────
+# ---- Production Stage ----
 FROM node:20-alpine
+
 WORKDIR /app
 
-COPY --from=builder /app/node_modules             ./node_modules
-COPY --from=builder /app/packages/shared          ./packages/shared
-COPY --from=builder /app/apps/api/dist            ./apps/api/dist
-COPY --from=builder /app/apps/api/prisma          ./apps/api/prisma
-COPY --from=builder /app/apps/api/node_modules    ./apps/api/node_modules
+COPY package.json package-lock.json* ./
+COPY apps/api/package.json apps/api/
+COPY packages/shared/package.json packages/shared/
+
+RUN npm ci --omit=dev --ignore-scripts
+
+# Copy built artifacts
+COPY --from=builder /app/packages/shared/dist/ packages/shared/dist/
+COPY --from=builder /app/apps/api/dist/ apps/api/dist/
+COPY --from=builder /app/apps/api/prisma/ apps/api/prisma/
+COPY --from=builder /app/apps/api/node_modules/.prisma/ apps/api/node_modules/.prisma/
+COPY --from=builder /app/node_modules/.prisma/ node_modules/.prisma/
 
 EXPOSE 3001
 
-CMD ["sh", "-c", \
-  "cd /app/apps/api && npx prisma migrate deploy --schema=./prisma/schema.prisma && \
-   cd /app && node apps/api/dist/server.js"]
+WORKDIR /app/apps/api
+
+# Run migrations then start
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]

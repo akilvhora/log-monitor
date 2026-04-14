@@ -91,12 +91,12 @@ export async function getHeatmap(opts: {
     ...params
   );
 
-  const toKey = (b: Date | unknown) =>
+  const toKey = (b: Date | string): string =>
     b instanceof Date ? b.toISOString() : String(b);
 
-  const services = [...new Set(rows.map((r) => r.service))].sort();
-  const buckets  = [...new Set(rows.map((r) => toKey(r.bucket)))].sort();
-  const cells    = rows.map((r) => ({
+  const services: string[] = [...new Set(rows.map((r: { service: string; bucket: Date; count: number }) => r.service))].sort();
+  const buckets: string[]  = [...new Set(rows.map((r: { service: string; bucket: Date; count: number }) => toKey(r.bucket)))].sort();
+  const cells    = rows.map((r: { service: string; bucket: Date; count: number }) => ({
     service: r.service,
     bucket:  toKey(r.bucket),
     count:   Number(r.count),
