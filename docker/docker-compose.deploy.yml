@@ -22,7 +22,7 @@ services:
     image: ${IMAGE_API:-192.168.1.111:8081/log-monitor-api:latest}
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-admin@123}@postgres:5432/logmonitor
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD_ENCODED:-admin%40123}@postgres:5432/logmonitor
       PORT: 3001
       API_KEY_SECRET: ${API_KEY_SECRET:-change-me-in-production}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
