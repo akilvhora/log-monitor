@@ -16,7 +16,7 @@ COPY packages/shared/package.json packages/shared/
 
 # Install all dependencies (including devDeps for build)
 # Use HTTP registry + disable strict-ssl to work around corporate MITM proxy TLS cipher failures
-RUN echo "registry=https://registry.npmjs.org/" > ~/.npmrc \
+RUN echo "registry=http://registry.npmjs.org/" > ~/.npmrc \
  && echo "strict-ssl=false" >> ~/.npmrc \
  && echo "fetch-retries=5" >> ~/.npmrc \
  && echo "fetch-retry-mintimeout=20000" >> ~/.npmrc \
