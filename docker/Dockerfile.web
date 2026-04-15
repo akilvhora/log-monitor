@@ -10,7 +10,7 @@ COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
 
 # Install dependencies
-RUN npm config set registry https://registry.npmjs.org/ \
+RUN npm config set registry http://192.168.1.111:8081/repository/npm-proxy/ \
  && npm config set strict-ssl false \
  && npm config set fetch-retries 5 \
  && npm config set fetch-retry-mintimeout 20000 \

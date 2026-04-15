@@ -13,7 +13,7 @@ COPY packages/shared/package.json packages/shared/
 
 # Install all dependencies (including devDeps for build)
 # Use HTTP registry + disable strict-ssl to work around corporate MITM proxy TLS cipher failures
-RUN npm config set registry https://registry.npmjs.org/ \
+RUN npm config set registry http://192.168.1.111:8081/repository/npm-proxy/ \
  && npm config set strict-ssl false \
  && npm config set fetch-retries 5 \
  && npm config set fetch-retry-mintimeout 20000 \
