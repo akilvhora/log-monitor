@@ -10,7 +10,13 @@ COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
 
 # Install dependencies
-RUN npm cache clean --force && npm ci --ignore-scripts
+RUN npm config set registry https://registry.npmjs.org/ \
+ && npm config set strict-ssl false \
+ && npm config set fetch-retries 5 \
+ && npm config set fetch-retry-mintimeout 20000 \
+ && npm config set fetch-retry-maxtimeout 120000 \
+ && npm cache clean --force \
+ && npm ci --ignore-scripts
 
 # Copy source code
 COPY tsconfig.base.json ./
