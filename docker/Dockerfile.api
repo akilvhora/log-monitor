@@ -1,9 +1,11 @@
 # ---- Build Stage ----
 FROM node:20-slim AS builder
 
-RUN apt-get update -y && apt-get install -y openssl
+RUN apt-get update -y && apt-get install -y openssl curl
 
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
+ENV NODE_OPTIONS=--openssl-legacy-provider
+ENV OPENSSL_CONF=/dev/null
 ENV PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
 WORKDIR /app
 
@@ -19,8 +21,9 @@ RUN echo "registry=https://registry.npmjs.org/" > ~/.npmrc \
  && echo "fetch-retries=5" >> ~/.npmrc \
  && echo "fetch-retry-mintimeout=20000" >> ~/.npmrc \
  && echo "fetch-retry-maxtimeout=120000" >> ~/.npmrc \
+ && echo "maxsockets=1" >> ~/.npmrc \
  && npm cache clean --force \
- && npm ci --ignore-scripts
+ && npm ci --ignore-scripts --fetch-timeout=600000
 
 # Copy source code
 COPY tsconfig.base.json ./
