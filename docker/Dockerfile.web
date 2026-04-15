@@ -1,9 +1,8 @@
 # ---- Build Stage ----
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
-ARG NEXUS_USER
-ARG NEXUS_PASS
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # Copy workspace root files
@@ -12,9 +11,7 @@ COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
 
 # Install dependencies
-RUN echo "registry=http://192.168.1.111:8081/repository/npm-proxy/" > ~/.npmrc \
- && echo "//192.168.1.111:8081/repository/npm-proxy/:_auth=$(echo -n "${NEXUS_USER}:${NEXUS_PASS}" | base64 -w0)" >> ~/.npmrc \
- && echo "always-auth=true" >> ~/.npmrc \
+RUN echo "registry=https://registry.npmjs.org/" > ~/.npmrc \
  && echo "strict-ssl=false" >> ~/.npmrc \
  && echo "fetch-retries=5" >> ~/.npmrc \
  && echo "fetch-retry-mintimeout=20000" >> ~/.npmrc \
