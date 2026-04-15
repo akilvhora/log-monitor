@@ -3,7 +3,6 @@ FROM node:20-slim AS builder
 
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 ENV PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
-RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # Copy workspace root files
@@ -37,7 +36,6 @@ RUN npm run build -w apps/api
 FROM node:20-slim
 
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
-RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # Copy everything from builder (node_modules, built artifacts, prisma client)
