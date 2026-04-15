@@ -1,6 +1,8 @@
 # ---- Build Stage ----
 FROM node:20-slim AS builder
 
+RUN apt-get update -y && apt-get install -y openssl
+
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 ENV PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
 WORKDIR /app
@@ -34,6 +36,8 @@ RUN npm run build -w apps/api
 
 # ---- Production Stage ----
 FROM node:20-slim
+
+RUN apt-get update -y && apt-get install -y openssl
 
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 WORKDIR /app
