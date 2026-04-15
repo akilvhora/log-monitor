@@ -4,8 +4,6 @@ FROM node:20-slim AS builder
 RUN apt-get update -y && apt-get install -y openssl curl
 
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
-ENV NODE_OPTIONS=--openssl-legacy-provider
-ENV OPENSSL_CONF=/dev/null
 ENV PRISMA_ENGINES_MIRROR=https://registry.npmmirror.com/-/binary/prisma
 WORKDIR /app
 
