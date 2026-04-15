@@ -33,12 +33,24 @@ pipeline {
             parallel {
                 stage('Build API') {
                     steps {
-                        bat "docker build -t ${IMAGE_API}:${IMAGE_TAG} -t ${IMAGE_API}:latest -f docker/Dockerfile.api ."
+                        withCredentials([usernamePassword(
+                            credentialsId: 'nexus-credentials',
+                            usernameVariable: 'NEXUS_USER',
+                            passwordVariable: 'NEXUS_PASS'
+                        )]) {
+                            bat "docker build --build-arg NEXUS_USER=%NEXUS_USER% --build-arg NEXUS_PASS=%NEXUS_PASS% -t ${IMAGE_API}:${IMAGE_TAG} -t ${IMAGE_API}:latest -f docker/Dockerfile.api ."
+                        }
                     }
                 }
                 stage('Build Web') {
                     steps {
-                        bat "docker build -t ${IMAGE_WEB}:${IMAGE_TAG} -t ${IMAGE_WEB}:latest -f docker/Dockerfile.web ."
+                        withCredentials([usernamePassword(
+                            credentialsId: 'nexus-credentials',
+                            usernameVariable: 'NEXUS_USER',
+                            passwordVariable: 'NEXUS_PASS'
+                        )]) {
+                            bat "docker build --build-arg NEXUS_USER=%NEXUS_USER% --build-arg NEXUS_PASS=%NEXUS_PASS% -t ${IMAGE_WEB}:${IMAGE_TAG} -t ${IMAGE_WEB}:latest -f docker/Dockerfile.web ."
+                        }
                     }
                 }
             }

@@ -3,6 +3,8 @@ FROM node:20-alpine AS builder
 
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 ENV PRISMA_ENGINES_MIRROR=https://binaries.prisma.sh
+ARG NEXUS_USER
+ARG NEXUS_PASS
 RUN for i in 1 2 3; do apk update && apk add --no-cache openssl ca-certificates && break || (echo "apk attempt $i failed, retrying..." && sleep 5 && apk cache clean 2>/dev/null || true); done
 WORKDIR /app
 
@@ -13,11 +15,13 @@ COPY packages/shared/package.json packages/shared/
 
 # Install all dependencies (including devDeps for build)
 # Use HTTP registry + disable strict-ssl to work around corporate MITM proxy TLS cipher failures
-RUN npm config set registry http://192.168.1.111:8081/repository/npm-proxy/ \
- && npm config set strict-ssl false \
- && npm config set fetch-retries 5 \
- && npm config set fetch-retry-mintimeout 20000 \
- && npm config set fetch-retry-maxtimeout 120000 \
+RUN echo "registry=http://192.168.1.111:8081/repository/npm-proxy/" > ~/.npmrc \
+ && echo "//192.168.1.111:8081/repository/npm-proxy/:_auth=$(echo -n "${NEXUS_USER}:${NEXUS_PASS}" | base64 -w0)" >> ~/.npmrc \
+ && echo "always-auth=true" >> ~/.npmrc \
+ && echo "strict-ssl=false" >> ~/.npmrc \
+ && echo "fetch-retries=5" >> ~/.npmrc \
+ && echo "fetch-retry-mintimeout=20000" >> ~/.npmrc \
+ && echo "fetch-retry-maxtimeout=120000" >> ~/.npmrc \
  && npm cache clean --force \
  && npm ci --ignore-scripts
 
