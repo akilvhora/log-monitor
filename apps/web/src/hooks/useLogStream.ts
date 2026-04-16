@@ -5,7 +5,7 @@ const WS_URL = (() => {
   const base = import.meta.env.VITE_WS_URL as string | undefined;
   if (base) return base;
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${proto}//localhost:3001`;
+  return `${proto}//${window.location.host}`;
 })();
 
 export function useLogStream(onEntry: (entry: LogEntry) => void, enabled: boolean) {

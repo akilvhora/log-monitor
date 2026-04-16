@@ -8,9 +8,10 @@ ENV PRISMA_ENGINES_MIRROR=https://registry.npmmirror.com/-/binary/prisma
 ENV PRISMA_CLI_QUERY_ENGINE_TYPE=library
 WORKDIR /app
 
-# Copy workspace root files
+# Copy workspace root files (all workspace package.jsons needed for npm ci)
 COPY package.json package-lock.json* ./
 COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
 
 # Install all dependencies (including devDeps for build)
@@ -47,7 +48,7 @@ RUN PRISMA_VERSION=$(node -e "console.log(require('./node_modules/prisma/package
  && echo "Engines downloaded successfully"
 
 # Generate Prisma client (engines already present, no download needed)
-RUN npx -w apps/api prisma generate
+RUN cd apps/api && npx prisma generate
 
 # Build shared package then API
 RUN npm run build -w packages/shared
@@ -56,20 +57,26 @@ RUN npm run build -w apps/api
 # ---- Production Stage ----
 FROM node:20-slim
 
-RUN apt-get update -y && apt-get install -y openssl
+RUN apt-get update -y && apt-get install -y openssl wget
 
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 WORKDIR /app
 
-# Copy everything from builder (node_modules, built artifacts, prisma client)
-COPY --from=builder /app/ ./
+# Copy workspace structure from builder
+COPY --from=builder /app/package.json /app/package-lock.json* ./
+COPY --from=builder /app/node_modules/ ./node_modules/
+COPY --from=builder /app/packages/shared/ ./packages/shared/
+COPY --from=builder /app/apps/api/ ./apps/api/
 
 # Prune devDependencies offline (no network call)
 RUN npm prune --omit=dev
+
+# Re-generate Prisma client after prune (prune can remove generated client files)
+RUN cd apps/api && npx prisma generate
 
 EXPOSE 3001
 
 WORKDIR /app/apps/api
 
-# Run migrations then start (offline — engines are already bundled from builder stage)
-CMD ["sh", "-c", "node /app/node_modules/prisma/build/index.js migrate deploy && node dist/server.js"]
+# Run migrations then start
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]

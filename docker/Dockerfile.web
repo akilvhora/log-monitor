@@ -6,9 +6,10 @@ RUN apt-get update -y && apt-get install -y openssl curl
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
 WORKDIR /app
 
-# Copy workspace root files
+# Copy workspace root files (all workspace package.jsons needed for npm ci)
 COPY package.json package-lock.json* ./
 COPY apps/web/package.json apps/web/
+COPY apps/api/package.json apps/api/
 COPY packages/shared/package.json packages/shared/
 
 # Install dependencies

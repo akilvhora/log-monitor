@@ -50,7 +50,8 @@
       "Bash(where curl:*)",
       "Bash(bash scripts/setup-jenkins.sh)",
       "Bash(docker compose *)",
-      "Bash(docker-compose ps *)"
+      "Bash(docker-compose ps *)",
+      "Bash(ls -la \"E:/work/Log Monitor/\"*.lock)"
     ]
   }
 }
