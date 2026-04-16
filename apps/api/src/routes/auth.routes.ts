@@ -31,20 +31,21 @@ function checkLoginRateLimit(ip: string): boolean {
 // ---------------------------------------------------------------------------
 // Cookie helpers
 // ---------------------------------------------------------------------------
-const IS_PROD = process.env.NODE_ENV === "production";
+// Only set secure cookies when actually behind HTTPS (not just NODE_ENV=production)
+const USE_SECURE = process.env.COOKIE_SECURE === "true";
 
 const ACCESS_COOKIE = {
   httpOnly: true,
-  secure: IS_PROD,
-  sameSite: (IS_PROD ? "strict" : "lax") as "strict" | "lax",
+  secure: USE_SECURE,
+  sameSite: "lax" as const,
   path: "/",
   maxAge: 900, // 15 min
 };
 
 const REFRESH_COOKIE = {
   httpOnly: true,
-  secure: IS_PROD,
-  sameSite: (IS_PROD ? "strict" : "lax") as "strict" | "lax",
+  secure: USE_SECURE,
+  sameSite: "lax" as const,
   path: "/api/auth/refresh",
   maxAge: 604_800, // 7 days
 };
