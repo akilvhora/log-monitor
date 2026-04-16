@@ -39,23 +39,23 @@ RUN ENGINE_HASH=$(node -e "console.log(require('./node_modules/@prisma/engines-v
  && echo "Prisma engine hash: ${ENGINE_HASH}" \
  && TARGET="debian-openssl-3.0.x" \
  && BASE_URL="https://binaries.prisma.sh/all_commits/${ENGINE_HASH}/${TARGET}" \
- && mkdir -p /b/node_modules/.prisma/engines \
+ && mkdir -p /b/node_modules/.prisma/client \
  && curl -fsSL --retry 5 --retry-delay 10 --insecure \
       "${BASE_URL}/libquery_engine.so.node.gz" \
       -o /tmp/libquery_engine.so.node.gz \
  && gunzip -f /tmp/libquery_engine.so.node.gz \
- && mv /tmp/libquery_engine.so.node /b/node_modules/.prisma/engines/ \
+ && mv /tmp/libquery_engine.so.node "/b/node_modules/.prisma/client/libquery_engine-${TARGET}.so.node" \
  && curl -fsSL --retry 5 --retry-delay 10 --insecure \
       "${BASE_URL}/schema-engine.gz" \
       -o /tmp/schema-engine.gz \
  && gunzip -f /tmp/schema-engine.gz \
- && mv /tmp/schema-engine /b/node_modules/.prisma/engines/ \
- && chmod +x /b/node_modules/.prisma/engines/schema-engine \
+ && mv /tmp/schema-engine /b/node_modules/.prisma/client/ \
+ && chmod +x /b/node_modules/.prisma/client/schema-engine \
  && echo "Engines downloaded successfully"
 
-# Generate Prisma client (engines already present, skips download)
-RUN cd apps/api && PRISMA_QUERY_ENGINE_LIBRARY=/b/node_modules/.prisma/engines/libquery_engine.so.node \
-    npx prisma generate
+# Generate Prisma client (engines already in .prisma/client/, skips download)
+ENV PRISMA_QUERY_ENGINE_LIBRARY=/b/node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node
+RUN cd apps/api && npx prisma generate
 
 # Build shared package then API
 RUN npm run build -w packages/shared
@@ -79,9 +79,10 @@ COPY --from=builder /b/apps/api/ ./apps/api/
 RUN npm prune --omit=dev
 
 # Restore pre-downloaded engines and re-generate Prisma client after prune
-COPY --from=builder /b/node_modules/.prisma/engines/ ./node_modules/.prisma/engines/
-RUN cd apps/api && PRISMA_QUERY_ENGINE_LIBRARY=/app/node_modules/.prisma/engines/libquery_engine.so.node \
-    npx prisma generate
+COPY --from=builder /b/node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node ./node_modules/.prisma/client/
+COPY --from=builder /b/node_modules/.prisma/client/schema-engine ./node_modules/.prisma/client/
+ENV PRISMA_QUERY_ENGINE_LIBRARY=/app/node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node
+RUN cd apps/api && npx prisma generate
 
 EXPOSE 3001
 
