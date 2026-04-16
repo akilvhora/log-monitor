@@ -78,8 +78,10 @@ COPY --from=builder /b/apps/api/ ./apps/api/
 # Prune devDependencies offline (no network call)
 RUN npm prune --omit=dev
 
-# Re-generate Prisma client after prune (prune can remove generated client files)
-RUN cd apps/api && npx prisma generate
+# Restore pre-downloaded engines and re-generate Prisma client after prune
+COPY --from=builder /b/node_modules/.prisma/engines/ ./node_modules/.prisma/engines/
+RUN cd apps/api && PRISMA_QUERY_ENGINE_LIBRARY=/app/node_modules/.prisma/engines/libquery_engine.so.node \
+    npx prisma generate
 
 EXPOSE 3001
 
