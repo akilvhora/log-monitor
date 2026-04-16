@@ -4,7 +4,8 @@ FROM node:20-slim AS builder
 RUN apt-get update -y && apt-get install -y openssl curl
 
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
-ENV PRISMA_ENGINES_MIRROR=http://registry.npmmirror.com/-/binary/prisma
+ENV PRISMA_ENGINES_MIRROR=https://registry.npmmirror.com/-/binary/prisma
+ENV PRISMA_CLI_QUERY_ENGINE_TYPE=library
 WORKDIR /app
 
 # Copy workspace root files
@@ -30,7 +31,22 @@ COPY tsconfig.base.json ./
 COPY packages/shared/ packages/shared/
 COPY apps/api/ apps/api/
 
-# Generate Prisma client
+# Download Prisma engines with curl (more resilient to TLS issues than Node's http client)
+RUN PRISMA_VERSION=$(node -e "console.log(require('./node_modules/prisma/package.json').version)") \
+ && echo "Prisma version: ${PRISMA_VERSION}" \
+ && mkdir -p /app/node_modules/.prisma/engines \
+ && curl -fsSL --retry 5 --retry-delay 10 --insecure \
+      "${PRISMA_ENGINES_MIRROR}/${PRISMA_VERSION}/debian-openssl-3.0.x/libquery_engine.so.node.gz" \
+      -o /tmp/libquery_engine.so.node.gz \
+ && gunzip -f /tmp/libquery_engine.so.node.gz \
+ && mv /tmp/libquery_engine.so.node /app/node_modules/.prisma/engines/ \
+ && curl -fsSL --retry 5 --retry-delay 10 --insecure \
+      "${PRISMA_ENGINES_MIRROR}/${PRISMA_VERSION}/debian-openssl-3.0.x/schema-engine" \
+      -o /app/node_modules/.prisma/engines/schema-engine \
+ && chmod +x /app/node_modules/.prisma/engines/schema-engine \
+ && echo "Engines downloaded successfully"
+
+# Generate Prisma client (engines already present, no download needed)
 RUN npx -w apps/api prisma generate
 
 # Build shared package then API
