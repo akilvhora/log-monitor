@@ -12,19 +12,16 @@ COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
 
 # Install dependencies
-RUN echo "registry=https://registry.npmjs.org/" > ~/.npmrc \
+RUN echo "registry=http://registry.npmjs.org/" > ~/.npmrc \
  && echo "strict-ssl=false" >> ~/.npmrc \
  && echo "fetch-retries=5" >> ~/.npmrc \
  && echo "fetch-retry-mintimeout=20000" >> ~/.npmrc \
  && echo "fetch-retry-maxtimeout=120000" >> ~/.npmrc \
- && echo "maxsockets=3" >> ~/.npmrc \
+ && echo "maxsockets=1" >> ~/.npmrc \
  && npm cache clean --force \
- && for i in 1 2 3; do \
-      echo "=== npm ci attempt $i ===" \
-      && npm ci --ignore-scripts --fetch-timeout=600000 \
-      && break \
-      || { echo "Attempt $i failed, retrying in 10s..."; sleep 10; }; \
-    done
+ && (npm ci --ignore-scripts --fetch-timeout=600000 \
+     || (echo "===== npm ci failed — dumping debug logs =====" \
+         && for f in /root/.npm/_logs/*.log; do echo "----- $f -----"; cat "$f"; done; exit 1))
 
 # Copy source code
 COPY tsconfig.base.json ./
