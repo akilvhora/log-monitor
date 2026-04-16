@@ -35,19 +35,31 @@ COPY packages/shared/ packages/shared/
 COPY apps/api/ apps/api/
 
 # Download Prisma engines with curl (Node TLS fails with ECONNRESET behind proxy)
-RUN ENGINE_HASH=$(node -e "console.log(require('./node_modules/@prisma/engines-version').enginesVersion)") \
- && echo "Prisma engine hash: ${ENGINE_HASH}" \
+# Try multiple mirrors: GitHub releases first, then binaries.prisma.sh
+RUN PRISMA_VERSION=$(node -e "console.log(require('./node_modules/prisma/package.json').version)") \
+ && ENGINE_HASH=$(node -e "console.log(require('./node_modules/@prisma/engines-version').enginesVersion)") \
+ && echo "Prisma v${PRISMA_VERSION}, engine hash: ${ENGINE_HASH}" \
  && TARGET="debian-openssl-3.0.x" \
- && BASE_URL="https://binaries.prisma.sh/all_commits/${ENGINE_HASH}/${TARGET}" \
  && mkdir -p /b/node_modules/.prisma/client \
- && curl -fsSL --retry 5 --retry-delay 10 --insecure \
-      "${BASE_URL}/libquery_engine.so.node.gz" \
-      -o /tmp/libquery_engine.so.node.gz \
+ && download() { \
+      local OUT="$1"; shift; \
+      for URL in "$@"; do \
+        echo "Trying: ${URL}"; \
+        if curl -fSL --retry 3 --retry-delay 5 --connect-timeout 30 --max-time 120 --insecure -o "${OUT}" "${URL}"; then \
+          echo "OK"; return 0; \
+        fi; \
+        echo "Failed: ${URL}"; \
+      done; \
+      echo "All mirrors failed"; return 1; \
+    } \
+ && download /tmp/libquery_engine.so.node.gz \
+      "https://github.com/prisma/prisma-engines/releases/download/${PRISMA_VERSION}/libquery_engine-${TARGET}.so.node.gz" \
+      "https://binaries.prisma.sh/all_commits/${ENGINE_HASH}/${TARGET}/libquery_engine.so.node.gz" \
  && gunzip -f /tmp/libquery_engine.so.node.gz \
  && mv /tmp/libquery_engine.so.node "/b/node_modules/.prisma/client/libquery_engine-${TARGET}.so.node" \
- && curl -fsSL --retry 5 --retry-delay 10 --insecure \
-      "${BASE_URL}/schema-engine.gz" \
-      -o /tmp/schema-engine.gz \
+ && download /tmp/schema-engine.gz \
+      "https://github.com/prisma/prisma-engines/releases/download/${PRISMA_VERSION}/schema-engine-${TARGET}.gz" \
+      "https://binaries.prisma.sh/all_commits/${ENGINE_HASH}/${TARGET}/schema-engine.gz" \
  && gunzip -f /tmp/schema-engine.gz \
  && mv /tmp/schema-engine /b/node_modules/.prisma/client/ \
  && chmod +x /b/node_modules/.prisma/client/schema-engine \

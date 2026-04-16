@@ -2,16 +2,6 @@ pipeline {
     agent any
 
     parameters {
-        string(
-            name: 'GIT_URL',
-            defaultValue: 'https://github.com/akilvhora/log-monitor.git',
-            description: 'Git repository URL'
-        )
-        string(
-            name: 'BRANCH',
-            defaultValue: 'master',
-            description: 'Branch to build'
-        )
         booleanParam(
             name: 'PUSH_TO_NEXUS',
             defaultValue: false,
@@ -30,8 +20,8 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: "${params.BRANCH}",
-                    url: "${params.GIT_URL}",
+                git branch: 'master',
+                    url: 'https://github.com/akilvhora/log-monitor.git',
                     credentialsId: 'git-credentials'
             }
         }
