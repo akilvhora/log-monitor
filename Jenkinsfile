@@ -1,11 +1,23 @@
 pipeline {
     agent any
 
+    parameters {
+        string(
+            name: 'GIT_URL',
+            defaultValue: 'https://github.com/akilvhora/log-monitor.git',
+            description: 'Git repository URL'
+        )
+        string(
+            name: 'BRANCH',
+            defaultValue: 'master',
+            description: 'Branch to build'
+        )
+    }
+
     environment {
-        NEXUS_URL        = '192.168.1.111:8081'
-        NEXUS_REPO       = 'docker'
-        IMAGE_API        = "${NEXUS_URL}/${NEXUS_REPO}/log-monitor-api"
-        IMAGE_WEB        = "${NEXUS_URL}/${NEXUS_REPO}/log-monitor-web"
+        NEXUS_URL        = '192.168.1.111:8082'
+        IMAGE_API        = "${NEXUS_URL}/log-monitor-api"
+        IMAGE_WEB        = "${NEXUS_URL}/log-monitor-web"
         IMAGE_TAG        = "${BUILD_NUMBER}"
         DEPLOY_DIR       = 'C:\\deploy\\log-monitor'
     }
@@ -13,7 +25,10 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                checkout scm
+                // Explicit git clone — works with both SCM-based and inline pipeline jobs
+                git branch: "${params.BRANCH}",
+                    url: "${params.GIT_URL}",
+                    credentialsId: 'git-credentials'
             }
         }
 

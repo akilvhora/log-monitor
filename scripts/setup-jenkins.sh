@@ -83,7 +83,28 @@ curl -s -v -u "${JENKINS_USER}:${JENKINS_PASS}" \
       \"id\": \"nexus-credentials\",
       \"username\": \"${NEXUS_USER}\",
       \"password\": \"${NEXUS_PASS}\",
-      \"description\": \"Nexus Docker Registry\",
+      \"description\": \"Nexus Docker Registry (port ${NEXUS_DOCKER_PORT})\",
+      \"\$class\": \"com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl\"
+    }
+  }" 2>&1
+echo ""
+
+echo ""
+echo "Adding Git credentials..."
+GIT_REPO_URL=$(git remote get-url origin 2>/dev/null || echo "https://github.com/akilvhora/log-monitor.git")
+# Use Jenkins admin credentials for Git access (Gitea uses same auth)
+curl -s -v -u "${JENKINS_USER}:${JENKINS_PASS}" \
+  ${CRUMB_HEADER} \
+  -X POST "${JENKINS_URL}/credentials/store/system/domain/_/createCredentials" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "json={
+    \"\": \"0\",
+    \"credentials\": {
+      \"scope\": \"GLOBAL\",
+      \"id\": \"git-credentials\",
+      \"username\": \"${JENKINS_USER}\",
+      \"password\": \"${JENKINS_PASS}\",
+      \"description\": \"Git repository credentials\",
       \"\$class\": \"com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl\"
     }
   }" 2>&1
@@ -94,44 +115,33 @@ echo "============================================="
 echo " Step 3: Create Jenkins Pipeline Job"
 echo "============================================="
 
-GIT_REPO_URL=$(git remote get-url origin 2>/dev/null || echo "http://192.168.1.111:3000/your-org/log-monitor.git")
+GIT_REPO_URL=$(git remote get-url origin 2>/dev/null || echo "https://github.com/akilvhora/log-monitor.git")
 echo "Git repo URL: ${GIT_REPO_URL}"
 
-# Build job config XML inline
+# Build job config XML — uses inline pipeline with explicit git step
+# so Jenkins doesn't need SCM config to clone the repo.
+JENKINSFILE_RAW=$(cat Jenkinsfile)
+# XML-escape the Jenkinsfile content
+JENKINSFILE_ESCAPED=$(echo "${JENKINSFILE_RAW}" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&apos;/g')
+
 JOB_XML="<?xml version='1.1' encoding='UTF-8'?>
 <flow-definition plugin=\"workflow-job\">
-  <description>Log Monitor - Build, Push to Nexus, and Deploy</description>
+  <description>CI/CD pipeline for Log Monitor</description>
   <keepDependencies>false</keepDependencies>
   <properties>
     <org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty/>
-    <hudson.model.ParametersDefinitionProperty>
-      <parameterDefinitions>
-        <hudson.model.StringParameterDefinition>
-          <name>BRANCH</name>
-          <defaultValue>master</defaultValue>
-          <description>Branch to build</description>
-          <trim>true</trim>
-        </hudson.model.StringParameterDefinition>
-      </parameterDefinitions>
-    </hudson.model.ParametersDefinitionProperty>
+    <jenkins.model.BuildDiscarderProperty>
+      <strategy class=\"hudson.tasks.LogRotator\">
+        <daysToKeep>-1</daysToKeep>
+        <numToKeep>10</numToKeep>
+        <artifactDaysToKeep>-1</artifactDaysToKeep>
+        <artifactNumToKeep>-1</artifactNumToKeep>
+      </strategy>
+    </jenkins.model.BuildDiscarderProperty>
   </properties>
-  <definition class=\"org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition\" plugin=\"workflow-cps\">
-    <scm class=\"hudson.plugins.git.GitSCM\" plugin=\"git\">
-      <configVersion>2</configVersion>
-      <userRemoteConfigs>
-        <hudson.plugins.git.UserRemoteConfig>
-          <url>${GIT_REPO_URL}</url>
-          <credentialsId>git-credentials</credentialsId>
-        </hudson.plugins.git.UserRemoteConfig>
-      </userRemoteConfigs>
-      <branches>
-        <hudson.plugins.git.BranchSpec>
-          <name>*/master</name>
-        </hudson.plugins.git.BranchSpec>
-      </branches>
-    </scm>
-    <scriptPath>Jenkinsfile</scriptPath>
-    <lightweight>true</lightweight>
+  <definition class=\"org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition\" plugin=\"workflow-cps\">
+    <script>${JENKINSFILE_ESCAPED}</script>
+    <sandbox>true</sandbox>
   </definition>
   <triggers/>
   <disabled>false</disabled>

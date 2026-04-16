@@ -62,7 +62,32 @@ try {
     Write-Warning "Crumb endpoint unavailable - continuing without crumb."
 }
 
-# 3. Ensure Docker is running on the Jenkins server via WinRM
+# 3. Add Git credentials to Jenkins (for repo checkout)
+Write-Host "Adding Git credentials to Jenkins ..."
+$gitCredJson = @{
+    "" = "0"
+    credentials = @{
+        scope = "GLOBAL"
+        id = "git-credentials"
+        username = $Username
+        password = $Password
+        description = "Git repository credentials"
+        '$class' = "com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl"
+    }
+} | ConvertTo-Json -Depth 5
+
+try {
+    Invoke-Jenkins -Uri "$JenkinsUrl/credentials/store/system/domain/_/createCredentials" `
+        -Method POST `
+        -Body "json=$([Uri]::EscapeDataString($gitCredJson))" `
+        -ContentType "application/x-www-form-urlencoded" `
+        -ExtraHeaders $crumbHeader | Out-Null
+    Write-Host "  Git credentials added."
+} catch {
+    Write-Host "  Git credentials already exist or failed: $($_.Exception.Message)"
+}
+
+# 4. Ensure Docker is running on the Jenkins server via WinRM
 Write-Host "Checking Docker on $RemoteHost ..."
 try {
     $secPass    = ConvertTo-SecureString $RemotePass -AsPlainText -Force
@@ -104,6 +129,7 @@ try {
         $daemonCfg = @{
             mtu                        = 1400
             "max-concurrent-downloads" = 2
+            "insecure-registries"      = @("192.168.1.111:8082")
         }
 
         if (Test-Path $daemonCfgPath) {
@@ -117,7 +143,7 @@ try {
             New-Item -ItemType Directory -Force -Path (Split-Path $daemonCfgPath) | Out-Null
             $daemonCfg | ConvertTo-Json | Set-Content $daemonCfgPath -Encoding UTF8
         }
-        Write-Host "  Docker daemon.json updated (MTU=1450)."
+        Write-Host "  Docker daemon.json updated (MTU=1400)."
 
         # Restart Docker service to apply daemon.json changes
         $svc = Get-Service -Name 'docker' -ErrorAction SilentlyContinue
@@ -141,7 +167,7 @@ try {
     Write-Warning "WinRM unavailable - start Docker manually on $RemoteHost : $_"
 }
 
-# 4. Fix Git network settings on the Jenkins server.
+# 5. Fix Git network settings on the Jenkins server.
 #    "bad record mac" / Schannel errors = TLS fragmentation or HTTP/2 corruption.
 #    Applied two ways: directly via WinRM (most reliable), then via Script Console as backup.
 
@@ -152,7 +178,7 @@ $gitConfigs = @(
     @("http.sslVerify",  "true")        # keep SSL verification on
 )
 
-# -- 3a. Apply via PowerShell Remoting (WinRM) directly on the server machine --
+# -- 5a. Apply via PowerShell Remoting (WinRM) directly on the server machine --
 Write-Host "Applying git config on $RemoteHost via WinRM as $RemoteUser ..."
 try {
     $secPass    = ConvertTo-SecureString $RemotePass -AsPlainText -Force
@@ -174,7 +200,7 @@ try {
 } catch {
     Write-Warning "  WinRM failed (check WinRM is enabled on $RemoteHost): $_"
 
-    # -- 3b. Fallback: apply via Jenkins Script Console --
+    # -- 5b. Fallback: apply via Jenkins Script Console --
     Write-Host "  Falling back to Jenkins Script Console ..."
     foreach ($cfg in $gitConfigs) {
         $key = $cfg[0]; $val = $cfg[1]
@@ -191,9 +217,9 @@ try {
     }
 }
 
-# 4. Build job XML — inline pipeline script (Jenkinsfile embedded directly).
-#    Git clone is done inside the Jenkinsfile itself with all required settings,
-#    so Jenkins never needs to clone the repo just to read the pipeline definition.
+# 6. Build job XML — inline pipeline script (Jenkinsfile embedded directly).
+#    The Jenkinsfile uses an explicit `git` step with a parameterized URL,
+#    so Jenkins never needs SCM config to clone the repo.
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $jfPath   = Join-Path $repoRoot "Jenkinsfile"
 
@@ -232,7 +258,7 @@ $jobXml = '<?xml version="1.1" encoding="UTF-8"?>' + "`n" +
 '  <disabled>false</disabled>' + "`n" +
 '</flow-definition>'
 
-# 5. Create or update the job
+# 7. Create or update the job
 Write-Host "Checking if job '$JobName' already exists ..."
 $jobExists = $false
 try {
