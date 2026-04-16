@@ -1,14 +1,6 @@
 pipeline {
     agent any
 
-    parameters {
-        booleanParam(
-            name: 'PUSH_TO_NEXUS',
-            defaultValue: false,
-            description: 'Push images to Nexus registry (requires Nexus running on NEXUS_URL)'
-        )
-    }
-
     environment {
         NEXUS_URL        = '192.168.1.111:8082'
         IMAGE_API        = "log-monitor-api"
@@ -42,9 +34,6 @@ pipeline {
         }
 
         stage('Push to Nexus') {
-            when {
-                expression { return params.PUSH_TO_NEXUS }
-            }
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'nexus-credentials',
