@@ -12,12 +12,17 @@ pipeline {
             defaultValue: 'master',
             description: 'Branch to build'
         )
+        booleanParam(
+            name: 'PUSH_TO_NEXUS',
+            defaultValue: false,
+            description: 'Push images to Nexus registry (requires Nexus running on NEXUS_URL)'
+        )
     }
 
     environment {
         NEXUS_URL        = '192.168.1.111:8082'
-        IMAGE_API        = "${NEXUS_URL}/log-monitor-api"
-        IMAGE_WEB        = "${NEXUS_URL}/log-monitor-web"
+        IMAGE_API        = "log-monitor-api"
+        IMAGE_WEB        = "log-monitor-web"
         IMAGE_TAG        = "${BUILD_NUMBER}"
         DEPLOY_DIR       = 'C:\\deploy\\log-monitor'
     }
@@ -25,22 +30,9 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // Explicit git clone — works with both SCM-based and inline pipeline jobs
                 git branch: "${params.BRANCH}",
                     url: "${params.GIT_URL}",
                     credentialsId: 'git-credentials'
-            }
-        }
-
-        stage('Docker Login to Nexus') {
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'nexus-credentials',
-                    usernameVariable: 'NEXUS_USER',
-                    passwordVariable: 'NEXUS_PASS'
-                )]) {
-                    bat "docker login -u %NEXUS_USER% -p %NEXUS_PASS% ${NEXUS_URL}"
-                }
             }
         }
 
@@ -60,12 +52,26 @@ pipeline {
         }
 
         stage('Push to Nexus') {
+            when {
+                expression { return params.PUSH_TO_NEXUS }
+            }
             steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'nexus-credentials',
+                    usernameVariable: 'NEXUS_USER',
+                    passwordVariable: 'NEXUS_PASS'
+                )]) {
+                    bat "docker login -u %NEXUS_USER% -p %NEXUS_PASS% ${NEXUS_URL}"
+                }
                 bat """
-                    docker push ${IMAGE_API}:${IMAGE_TAG}
-                    docker push ${IMAGE_API}:latest
-                    docker push ${IMAGE_WEB}:${IMAGE_TAG}
-                    docker push ${IMAGE_WEB}:latest
+                    docker tag ${IMAGE_API}:${IMAGE_TAG} ${NEXUS_URL}/${IMAGE_API}:${IMAGE_TAG}
+                    docker tag ${IMAGE_API}:latest       ${NEXUS_URL}/${IMAGE_API}:latest
+                    docker tag ${IMAGE_WEB}:${IMAGE_TAG} ${NEXUS_URL}/${IMAGE_WEB}:${IMAGE_TAG}
+                    docker tag ${IMAGE_WEB}:latest       ${NEXUS_URL}/${IMAGE_WEB}:latest
+                    docker push ${NEXUS_URL}/${IMAGE_API}:${IMAGE_TAG}
+                    docker push ${NEXUS_URL}/${IMAGE_API}:latest
+                    docker push ${NEXUS_URL}/${IMAGE_WEB}:${IMAGE_TAG}
+                    docker push ${NEXUS_URL}/${IMAGE_WEB}:latest
                 """
             }
         }

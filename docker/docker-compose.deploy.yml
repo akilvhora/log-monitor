@@ -19,7 +19,7 @@ services:
       retries: 10
 
   api:
-    image: ${IMAGE_API:-192.168.1.111:8082/log-monitor-api:latest}
+    image: ${IMAGE_API:-log-monitor-api:latest}
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD_ENCODED:-admin%40123}@postgres:5432/logmonitor
@@ -40,7 +40,7 @@ services:
       start_period: 60s
 
   web:
-    image: ${IMAGE_WEB:-192.168.1.111:8082/log-monitor-web:latest}
+    image: ${IMAGE_WEB:-log-monitor-web:latest}
     restart: unless-stopped
     ports:
       - "${PORT:-80}:80"
