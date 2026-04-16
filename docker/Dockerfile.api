@@ -45,7 +45,7 @@ RUN PRISMA_VERSION=$(node -e "console.log(require('./node_modules/prisma/package
       local OUT="$1"; shift; \
       for URL in "$@"; do \
         echo "Trying: ${URL}"; \
-        if curl -fSL --retry 3 --retry-delay 5 --connect-timeout 30 --max-time 120 --insecure -o "${OUT}" "${URL}"; then \
+        if curl -fSL --retry 5 --retry-all-errors --retry-delay 10 --connect-timeout 60 --max-time 600 --insecure -o "${OUT}" "${URL}"; then \
           echo "OK"; return 0; \
         fi; \
         echo "Failed: ${URL}"; \
