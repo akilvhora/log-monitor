@@ -32,7 +32,6 @@ services:
       CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-3-5-sonnet-20241022}
       AI_MAX_LOGS_PER_SUMMARY: ${AI_MAX_LOGS_PER_SUMMARY:-200}
       LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-30}
-      CORS_ORIGIN: ${CORS_ORIGIN:-}
       NODE_ENV: production
     depends_on:
       postgres:
