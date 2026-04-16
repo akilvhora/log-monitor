@@ -48,7 +48,7 @@ services:
       dockerfile: docker/Dockerfile.web
     restart: unless-stopped
     ports:
-      - "${PORT:-80}:80"
+      - "${PORT:-11000}:80"
     depends_on:
       api:
         condition: service_healthy

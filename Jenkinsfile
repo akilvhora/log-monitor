@@ -84,7 +84,7 @@ pipeline {
                     def healthy = false
                     for (int i = 0; i < retries; i++) {
                         try {
-                            bat 'curl -sf http://localhost/health >nul 2>&1'
+                            bat 'curl -sf http://localhost:11000/health >nul 2>&1'
                             healthy = true
                             break
                         } catch (e) {
@@ -104,8 +104,8 @@ pipeline {
     post {
         success {
             echo "Deployed log-monitor build #${BUILD_NUMBER} successfully"
-            echo "Application: http://192.168.1.111"
-            echo "API: http://192.168.1.111/api/logs"
+            echo "Application: http://192.168.1.111:11000"
+            echo "API: http://192.168.1.111:11000/api/logs"
         }
         failure {
             echo "Build #${BUILD_NUMBER} failed"
