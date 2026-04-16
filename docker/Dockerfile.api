@@ -34,8 +34,28 @@ COPY tsconfig.base.json ./
 COPY packages/shared/ packages/shared/
 COPY apps/api/ apps/api/
 
-# Generate Prisma client (will auto-download engines; TLS env vars handle SSL issues)
-RUN cd apps/api && npx prisma generate
+# Download Prisma engines with curl (Node TLS fails with ECONNRESET behind proxy)
+RUN ENGINE_HASH=$(node -e "console.log(require('./node_modules/@prisma/engines-version').enginesVersion)") \
+ && echo "Prisma engine hash: ${ENGINE_HASH}" \
+ && TARGET="debian-openssl-3.0.x" \
+ && BASE_URL="https://binaries.prisma.sh/all_commits/${ENGINE_HASH}/${TARGET}" \
+ && mkdir -p /b/node_modules/.prisma/engines \
+ && curl -fsSL --retry 5 --retry-delay 10 --insecure \
+      "${BASE_URL}/libquery_engine.so.node.gz" \
+      -o /tmp/libquery_engine.so.node.gz \
+ && gunzip -f /tmp/libquery_engine.so.node.gz \
+ && mv /tmp/libquery_engine.so.node /b/node_modules/.prisma/engines/ \
+ && curl -fsSL --retry 5 --retry-delay 10 --insecure \
+      "${BASE_URL}/schema-engine.gz" \
+      -o /tmp/schema-engine.gz \
+ && gunzip -f /tmp/schema-engine.gz \
+ && mv /tmp/schema-engine /b/node_modules/.prisma/engines/ \
+ && chmod +x /b/node_modules/.prisma/engines/schema-engine \
+ && echo "Engines downloaded successfully"
+
+# Generate Prisma client (engines already present, skips download)
+RUN cd apps/api && PRISMA_QUERY_ENGINE_LIBRARY=/b/node_modules/.prisma/engines/libquery_engine.so.node \
+    npx prisma generate
 
 # Build shared package then API
 RUN npm run build -w packages/shared
