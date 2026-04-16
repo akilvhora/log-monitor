@@ -13,12 +13,14 @@ COPY apps/api/package.json apps/api/
 COPY packages/shared/package.json packages/shared/
 
 # Install dependencies
+# Rewrite lockfile HTTPS URLs to HTTP to avoid TLS cipher failures behind corporate proxy
 RUN echo "registry=http://registry.npmjs.org/" > ~/.npmrc \
  && echo "strict-ssl=false" >> ~/.npmrc \
  && echo "fetch-retries=5" >> ~/.npmrc \
  && echo "fetch-retry-mintimeout=20000" >> ~/.npmrc \
  && echo "fetch-retry-maxtimeout=120000" >> ~/.npmrc \
  && echo "maxsockets=1" >> ~/.npmrc \
+ && sed -i 's|https://registry.npmjs.org|http://registry.npmjs.org|g' package-lock.json \
  && npm cache clean --force \
  && (npm ci --ignore-scripts --fetch-timeout=600000 \
      || (echo "===== npm ci failed — dumping debug logs =====" \
