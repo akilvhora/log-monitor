@@ -4,7 +4,7 @@ FROM node:20-slim AS builder
 RUN apt-get update -y && apt-get install -y openssl curl
 
 ENV NODE_TLS_REJECT_UNAUTHORIZED=0
-ENV PRISMA_ENGINES_MIRROR=https://registry.npmmirror.com/-/binary/prisma
+ENV PRISMA_ENGINES_MIRROR=http://registry.npmmirror.com/-/binary/prisma
 WORKDIR /app
 
 # Copy workspace root files
