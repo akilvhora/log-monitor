@@ -49,3 +49,5 @@ coverage/
 
 # Prisma generated
 apps/api/node_modules/.prisma/
+
+.claude
